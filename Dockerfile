@@ -14,7 +14,7 @@ RUN npm install -g pnpm@5
 RUN pnpm install
 
 # Copy the rest of the application code to the working directory
-COPY . .
+COPY . /app
 
 # Expose the port that the application will run on
 EXPOSE 3000
