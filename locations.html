@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Locations Management</title>
+</head>
+<body>
+<h1>Locations Management</h1>
+
+<!-- Form for creating a new location -->
+<h2>Add New Location</h2>
+<form id="createLocationForm">
+    <label for="locationName">Location Name:</label>
+    <input type="text" id="locationName" name="name" required>
+    <label for="latitude">Latitude:</label>
+    <input type="number" id="latitude" name="latitude" step="any" required>
+    <label for="longitude">Longitude:</label>
+    <input type="number" id="longitude" name="longitude" step="any" required>
+    <button type="submit">Save Location</button>
+</form>
+
+<!-- Display list of saved locations -->
+<h2>Saved Locations</h2>
+<ul id="locationList"></ul>
+
+<script>
+    // Function to fetch and display list of saved locations
+    async function fetchAndDisplayLocations() {
+        try {
+            const response = await fetch('/locations');
+            if (!response.ok) {
+                throw new Error('Failed to fetch locations');
+            }
+            const locations = await response.json();
+            // Clear previous list
+            document.getElementById('locationList').innerHTML = '';
+            // Display each location in the list
+            locations.forEach(location => {
+                const li = document.createElement('li');
+                li.textContent = `${location.name} (Lat: ${location.latitude}, Long: ${location.longitude})`;
+                // Create delete button
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Delete';
+                deleteButton.addEventListener('click', async () => {
+                    try {
+                        await fetch(`/locations/${location._id}`, {
+                            method: 'DELETE'
+                        });
+                        // Refresh location list after deletion
+                        await fetchAndDisplayLocations();
+                        alert('Location deleted successfully');
+                    } catch (error) {
+                        console.error(error);
+                        alert('Failed to delete location');
+                    }
+                });
+                // Append delete button to the list item
+                li.appendChild(deleteButton);
+                document.getElementById('locationList').appendChild(li);
+            });
+        } catch (error) {
+            console.error(error);
+            // Display error message
+            document.getElementById('locationList').innerHTML = '<li>Error fetching locations</li>';
+        }
+    }
+
+    // Fetch and display locations when the page loads
+    window.onload = fetchAndDisplayLocations;
+
+    // Handle form submission to create new location
+    document.getElementById('createLocationForm').addEventListener('submit', async function(event) {
+        event.preventDefault();
+
+        const name = document.getElementById('locationName').value;
+        const latitude = document.getElementById('latitude').value;
+        const longitude = document.getElementById('longitude').value;
+
+        try {
+            const response = await fetch('/locations', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name, latitude, longitude })
+            });
+            if (!response.ok) {
+                throw new Error('Failed to create location');
+            }
+            // Refresh location list after successful creation
+            await fetchAndDisplayLocations();
+            alert('Location created successfully');
+        } catch (error) {
+            console.error(error);
+            alert('Failed to create location');
+        }
+    });
+</script>
+</body>
+</html>

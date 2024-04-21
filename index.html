@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Microservice</title>
+</head>
+<body>
+<h1>Welcome to weather microservice!!</h1>
+<p>A basic Weather server microservice</p>
+
+<h2>Weather Search</h2>
+<p>Enter your details to get weather info</p>
+<!-- Form for searching weather -->
+<form id="searchForm">
+    <label for="locationInput">City Name:</label>
+    <input type="text" id="locationInput" name="query" required>
+    <!-- Dropdown for selecting country -->
+    <label for="locationInput">Select Country:</label>
+    <select id="countrySelect">
+        <!-- Options will be generated dynamically using JavaScript -->
+    </select>
+    <button type="submit">Search</button>
+</form>
+
+<!-- Display weather information for searched location -->
+<div id="searchedWeatherInfo"></div>
+
+<!-- Display weather information for saved locations -->
+<h2>Weather Information for Saved Locations</h2>
+<div id="savedWeatherInfo"></div>
+
+<!-- Display list of saved locations -->
+<h2>Saved Locations</h2>
+<ul id="locationList"></ul>
+
+<!-- Link to navigate to locations.html -->
+<a href="/locations.html">Manage Locations</a>
+
+<!-- JavaScript for fetching weather data, generating country options, and displaying saved locations -->
+<script>
+    // Array of countries with their names and country codes
+    const countries = [
+        { name: '--select--', code: '' },
+        { name: 'Afghanistan', code: 'af' },
+        { name: 'Albania', code: 'al' },
+        { name: 'Algeria', code: 'dz' },
+        { name: 'Sri Lanka', code: 'lk' },
+    ];
+
+    // Function to generate options for the country select dropdown
+    function generateCountryOptions() {
+        const countrySelect = document.getElementById('countrySelect');
+        countries.forEach(country => {
+            const option = document.createElement('option');
+            option.value = country.code;
+            option.textContent = country.name;
+            countrySelect.appendChild(option);
+        });
+    }
+
+    // Function to fetch and display list of saved locations
+    async function fetchAndDisplayLocations() {
+        try {
+            const response = await fetch('/locations');
+            if (!response.ok) {
+                throw new Error('Failed to fetch locations');
+            }
+            const locations = await response.json();
+            // Clear previous list
+            const locationList = document.getElementById('locationList');
+            locationList.innerHTML = '';
+            // Display each location in the list
+            locations.forEach(location => {
+                const li = document.createElement('li');
+                li.textContent = `${location.name} (Lat: ${location.latitude}, Long: ${location.longitude})`;
+                locationList.appendChild(li);
+                // Fetch weather data for each location
+                fetchWeatherData(location, true); // Pass true to indicate it's a saved location
+            });
+        } catch (error) {
+            console.error(error);
+            // Display error message
+            document.getElementById('locationList').innerHTML = '<li>Error fetching locations</li>';
+        }
+    }
+
+    // Function to fetch weather data for a specific location
+    async function fetchWeatherData(location, isSavedLocation) {
+        const { name, latitude, longitude } = location;
+        try {
+            const response = await fetch(`/search?query=${name},${latitude},${longitude}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch weather data');
+            }
+            const weatherData = await response.json();
+            if (isSavedLocation) {
+                displayWeatherInfo(weatherData, 'savedWeatherInfo');
+            } else {
+                displayWeatherInfo(weatherData, 'searchedWeatherInfo');
+            }
+        } catch (error) {
+            console.error(error);
+            document.getElementById(isSavedLocation ? 'savedWeatherInfo' : 'searchedWeatherInfo').textContent = `Failed to fetch weather data for ${name}`;
+        }
+    }
+
+    // Function to get the weather icon URL based on the icon code
+    function getWeatherIconUrl(iconCode) {
+        return `http://openweathermap.org/img/w/${iconCode}.png`;
+    }
+
+    // Function to display weather information
+    function displayWeatherInfo(weatherData, containerId) {
+        const weatherInfoElement = document.getElementById(containerId);
+
+        // Calculate timezone offset in hours and minutes
+        const timezoneHours = Math.floor(weatherData.timezone / 3600);
+        const timezoneMinutes = Math.abs(Math.floor(weatherData.timezone / 60) % 60);
+        const timezoneOffset = `${timezoneHours >= 0 ? '+' : '-'}${Math.abs(timezoneHours)}:${(timezoneMinutes < 10 ? '0' : '')}${timezoneMinutes}`;
+
+        function getWindDirection(deg) {
+            const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+            const index = Math.round((deg % 360) / 45);
+            return directions[index % 8];
+        }
+
+        const windDirection = getWindDirection(weatherData.wind.deg);
+
+        // Get the current date and time
+        const currentDate = new Date().toLocaleDateString();
+        const currentTime = new Date().toLocaleTimeString();
+
+        // Convert sunrise and sunset times from Unix timestamp to local time
+        const sunriseTime = new Date((weatherData.sys.sunrise) * 1000).toLocaleTimeString();
+        const sunsetTime = new Date((weatherData.sys.sunset) * 1000).toLocaleTimeString();
+
+        // Get the weather icon URL
+        const weatherIconUrl = getWeatherIconUrl(weatherData.weather[0].icon);
+
+        weatherInfoElement.innerHTML += `
+                <div style="display: flex; justify-content: space-around;">
+                    <div style="text-align: center;">
+                        <h2>${weatherData.name}, ${weatherData.sys.country}</h2>
+                        <h3>${Math.round(weatherData.main.temp - 273.15)} °</h3>
+                        <h4>${weatherData.weather[0].description}</h4>
+                        <p>H: ${Math.round(weatherData.main.temp_max - 273.15)} ° L: ${Math.round(weatherData.main.temp_min - 273.15)} °</p>
+                    </div>
+                    <div style="text-align: center;">
+                        <img src="${weatherIconUrl}" alt="Weather Icon" style="width: 200px; height: 200px;">
+                    </div>
+                    <div>
+                        <p>Date: ${currentDate}</p>
+                        <p>Time: ${currentTime}</p>
+                        <p>Timezone: ${timezoneOffset} UTC</p>
+                    </div>
+                    <div>
+                        <p>Sunrise: ${sunriseTime}</p>
+                        <p>Sunset: ${sunsetTime}</p>
+                    </div>
+                    <div>
+                        <p>Feels like: ${Math.round(weatherData.main.feels_like - 273.15)} °C</p>
+                        <p>Humidity: ${weatherData.main.humidity}%</p>
+                    </div>
+                    <div>
+                        <p>Pressure: ${weatherData.main.pressure} hPa</p>
+                        <p>Visibility: ${Math.round(weatherData.visibility / 1000)} km</p>
+                        <p>Wind: ${Math.round(weatherData.wind.speed * 3.6)} km/h ${windDirection}</p>
+                    </div>
+                </div>
+            `;
+    }
+
+    // Call the function to generate country options and fetch/display saved locations when the page loads
+    window.onload = function() {
+        generateCountryOptions();
+        fetchAndDisplayLocations();
+    };
+
+    document.getElementById('searchForm').addEventListener('submit', async function(event) {
+        event.preventDefault();
+
+        const query = document.getElementById('locationInput').value;
+        const countryCode = document.getElementById('countrySelect').value;
+
+        try {
+            const response = await fetch(`/search?query=${query},${countryCode}`); // Include country code in the query
+            if (!response.ok) {
+                throw new Error('Failed to fetch weather data');
+            }
+            const weatherData = await response.json();
+            displayWeatherInfo(weatherData, 'searchedWeatherInfo');
+        } catch (error) {
+            console.error(error);
+            document.getElementById('searchedWeatherInfo').textContent = 'Failed to fetch weather data';
+        }
+    });
+
+    // Function to get the weather icon URL based on the icon code
+    function getWeatherIconUrl(iconCode) {
+        return `http://openweathermap.org/img/w/${iconCode}.png`;
+    }
+</script>
+</body>
+</html>
