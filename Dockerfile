@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 
 # Install pnpm globally
-RUN npm install -g pnpm
+RUN npm install -g pnpm@5
 
 # Install dependencies using pnpm
 RUN pnpm install
